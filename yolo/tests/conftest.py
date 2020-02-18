@@ -5,11 +5,14 @@ import yaml
 from pathlib import Path
 import vedanet as vn
 
+from .utils import AnnoPickleDatasetFactory
+
 
 @pytest.fixture(scope="session")
 def yolo_dir(tmp_path_factory):
     yolo_d = tmp_path_factory.mktemp("yolo")
     pass
+
 
 @pytest.fixture(scope='module')
 def monkeymodule():
@@ -25,8 +28,8 @@ def monkeymodule():
 
 
 # TODO: Make a global `factory` one (test, train, speed)
-@pytest.fixture(name="dy3kv", scope="class")
-def default_yolov3_keyval_test_setting_mapping():
+@pytest.fixture(name="dy3_config_r", scope="class")
+def default_yolov3_config_keyval_setting_mapping():
     """Mapping of settings name in yml file with the one loaded to framework.
 
     For some reasons, the settings defined in yml file are not the same when
@@ -79,8 +82,8 @@ def default_yolov3_keyval_test_setting_mapping():
         }
 
 
-@pytest.fixture(name="dy3c", scope="class")
-def default_yolov3_test_config(monkeymodule, dy3kv):
+@pytest.fixture(name="dy3_config_dict", scope="class")
+def default_yolov3_config(monkeymodule, dy3_config_r):
     """Default config made from yolov3 yml file.
 
     The yml file in cfgs/*.yml defines four things.
@@ -98,7 +101,7 @@ def default_yolov3_test_config(monkeymodule, dy3kv):
     # hard coded.
     # TODO: Rename initEnv to init_env and make it better...
     # TODO: Solve the loading yml warning.
-    s = dy3kv
+    s = dy3_config_r
     yolov3 = f'''
         output_root: "{s['output_root']}"
         output_version: "{s['output_version']}"
@@ -166,10 +169,17 @@ def default_yolov3_test_config(monkeymodule, dy3kv):
     config = envs.initEnv(train_flag, "Yolov3")
     return config
 
-@pytest.fixture(name="dy3h", scope="class")
-def default_yolov3_test_hyperparams(dy3c):
+@pytest.fixture(name="dy3_hyper_train", scope="class")
+def default_yolov3_hyperparams_train(dy3_config_dict):
     """Default YOLOv3 hyperparameters made from the config."""
-    return vn.hyperparams.HyperParams(dy3c, train_flag=1)
+    # XXX: `dy3_config_dict` itself is not perfect
+    return vn.hyperparams.HyperParams(dy3_config_dict, train_flag=1)
+
+
+@pytest.fixture(name="d_vocd_t", scope="class")
+def default_voc_dataset_train(dy3_hyper_train):
+    """Default YOLOv3 hyperparameters made from the config."""
+    return AnnoPickleDatasetFactory.get_dataset("default_voc")(dy3_hyper_train)
 
 
 @pytest.fixture(scope="function")
@@ -180,22 +190,8 @@ def default_env():
     """
     pass
 
-
-@pytest.fixture(scope="function")
-def default_hyperparams():
-    """Produce default hyperparameters.
-
-    This framework will only work when parameters are passed. This fixture
-    gives that.
-    The parameters will largely be some fake stuff. But hey, it just for testing.
-    """
-    pass
-
-
-
-
 @pytest.fixture(scope="class")
-def default_empty_yolov3_engine(dy3kv):
+def default_empty_yolov3_engine(dy3_config_r):
     """Get the "empty" `Engine` instance.
 
     This engine will contain made-up function. It shows what kind of things you
